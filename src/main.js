@@ -2,11 +2,17 @@ import Vue from 'vue'
 import App from './App.vue'
 import router from './router'
 import store from './store'
-
 //加载全局样式
 import './styles/index.less'
-Vue.config.productionTip = false
 
+//引入vant组件库
+import Vant from 'vant'
+//全局引入vant
+import 'vant/lib/index.css'
+Vue.use(Vant)
+
+
+Vue.config.productionTip = false;
 new Vue({
     router,
     store,
