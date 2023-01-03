@@ -12,6 +12,7 @@
         <van-cell title="单元格" value="内容" label="描述信息" />
       </van-cell-group>
     </div>
+    <div class="hello">hello</div>
     <router-view />
   </div>
 </template>
@@ -21,4 +22,10 @@ export default {
 }
 </script>
 
-<style lang="less"></style>
+<style lang="less">
+.hello {
+  width: 550px;
+  height: 64px;
+  background-color: pink;
+}
+</style>
