@@ -2,8 +2,14 @@
   <div class="channel-edit">
     <van-cell :border="false">
       <div slot="title" class="title-text">我的频道</div>
-      <van-button class="edit-btn" type="danger" plain round size="small"
-        >编辑</van-button
+      <van-button
+        class="edit-btn"
+        type="danger"
+        plain
+        round
+        size="small"
+        @click="isEdit = !isEdit"
+        >{{ isEdit ? '完成' : '编辑' }}</van-button
       >
     </van-cell>
     <!-- 格子间距 -->
@@ -19,7 +25,7 @@
         class="grid-item"
         v-for="(item, index) in myChannels"
         :key="index"
-        icon="clear"
+        @click="myChannelClick(item, index)"
       >
         <!-- 
         v-bind:class语法
@@ -33,6 +39,11 @@
         <span class="text" slot="text" :class="{ active: index === active }">
           {{ item.name }}
         </span>
+        <van-icon
+          slot="icon"
+          name="clear"
+          v-show="isEdit && !fixedChannel.includes(item.id)"
+        ></van-icon>
       </van-grid-item>
     </van-grid>
 
@@ -51,13 +62,26 @@
         :key="value"
         text="推荐"
       />
+      <van-grid-item
+        class="grid-item"
+        icon="plus"
+        v-for="(channel, index) in tuijianChannels"
+        :key="index"
+        :text="channel.name"
+        @click="addChannel(channel)"
+      />
     </van-grid>
     <!--/ 频道推荐 -->
   </div>
 </template>
 
 <script>
-import { getAllChannels } from '@/api/channel'
+import {
+  getAllChannels,
+  addUserChannel,
+  deleteUserChannel,
+} from '@/api/channel'
+import { mapState } from 'vuex'
 export default {
   name: 'ChannelEdit',
   props: {
@@ -73,13 +97,106 @@ export default {
   data() {
     return {
       allChannels: [],
+      isEdit: false, //控制编辑状态的显示
+      fixedChannel: [0], //固定的不可编辑的频道
     }
   },
   created() {
     this.getAllChannels()
   },
   mounted() {},
+  computed: {
+    //引入user 判断是否登录
+    ...mapState(['user']),
+    //计算属性会观测内部依赖数据的变化
+    //如果依赖的数据发生变化 则计算属性会重新执行
+    //故 在点击推荐列表的数据添加到“我的频道”时 使用的方法是myChannel.push() myChannels数组发生了变化 “推荐频道”的数据会重新刷新 所以就不用再手动删除推荐频道里面的数据了
+
+    //方法1：
+    // tuijianChannels() {
+    //   const channels = []
+    //   this.allChannels.forEach((channel) => {
+    //     //find遍历数组 找到满足条件的元素项 并将匹配的元素返回
+    //     const ret = this.myChannels.find((myChannel) => {
+    //       return myChannel.id === channel.id
+    //     })
+    //     //如果我的频道中不包括该频道项，则收集到推荐频道中
+    //     if (!ret) {
+    //       channels.push(channel)
+    //     }
+    //   })
+
+    //   //把计算结果返回
+    //   return channels
+    // },
+
+    //方法2：
+    tuijianChannels() {
+      //数组的filter方法：遍历数组 将符合条件的元素存储到新的数组中
+      return this.allChannels.filter((channel) => {
+        return !this.myChannels.find((mychannel) => {
+          //返回的是相同的ID项  此处需要不同的项 故取反
+          return mychannel.id === channel.id
+        })
+      })
+    },
+  },
   methods: {
+    myChannelClick(channel, index) {
+      //console.log(channel, index)
+      if (this.isEdit) {
+        //如果是固定频道 则不删除
+        if (this.fixedChannel.includes(channel.id)) {
+          return
+        }
+        //如果是编辑状态 执行删除操作
+        //参数1：要删除的元素的开始索引
+        //参数2：删除的个数 如果不指定，则从参数1开始一直删除到最后
+        if (index <= this.active) {
+          this.$emit('change-channel', this.active - 1, true)
+        }
+        //删除频道代码
+        this.myChannels.splice(index, 1)
+        //处理数据持久化
+        this.deleteChannel(channel)
+      } else {
+        //非编辑状态  执行切换频道的操作
+        this.$emit('change-channel', index, false)
+      }
+    },
+    //删除频道方法
+    async deleteChannel(channel) {
+      try {
+        if (this.user) {
+          //一登录  则将数据更新到线上
+          await deleteUserChannel(channel.id)
+        } else {
+          //未登录  将数据更新到线下
+          window.localStorage.setItem('TOUTIAO_CHANNELS', this.myChannels)
+        }
+      } catch (error) {
+        this.$toast('操作失败')
+      }
+    },
+    //添加频道
+    async addChannel(channel) {
+      this.myChannels.push(channel)
+      //数据持久化处理
+      if (this.user) {
+        try {
+          //已登录：把数据请求接口放到线上
+          await addUserChannel({
+            id: channel.id, //频道ID
+            seq: this.myChannels.length, //序号
+          })
+        } catch (error) {
+          this.$toast('保存失败')
+        }
+      } else {
+        //未登录：把数据存储到本地
+        window.localStorage.setItem('TOUTIAO_CHANNELS', this.myChannels)
+      }
+    },
     async getAllChannels() {
       try {
         const { data } = await getAllChannels()
@@ -120,6 +237,9 @@ export default {
       }
       .active {
         color: red;
+      }
+      .van-grid-item__icon-wrapper {
+        position: unset;
       }
     }
   }

@@ -35,7 +35,11 @@
       position="bottom"
       :style="{ height: '100%' }"
     >
-      <channel-edit :my-channels="channels" :active="active"></channel-edit>
+      <channel-edit
+        :my-channels="channels"
+        :active="active"
+        @change-channel="onchangeChannel"
+      ></channel-edit>
     </van-popup>
 
     <!-- /弹出层 -->
@@ -46,6 +50,7 @@
 import ArticalList from './components/artical-list'
 import { getChannels } from '@/api/user'
 import ChannelEdit from './components/channel-edit'
+import { mapState } from 'vuex'
 export default {
   name: 'homeIndex',
   components: {
@@ -63,12 +68,39 @@ export default {
     this.loadChannels()
   },
   mounted() {},
+  computed: {
+    ...mapState(['user']),
+  },
   methods: {
+    onchangeChannel(index, isclose = true) {
+      //更新激活的频道项
+      this.active = index
+      //关闭编辑频道的弹出层
+      this.show = isclose
+    },
     async loadChannels() {
       try {
         //由于接口有问题  所以写一点假数据
-        const { data } = await getChannels()
-        console.log(data)
+        // const { data } = await getChannels()
+        // console.log(data)
+        // this.channels = data.data.channels
+        const channels = []
+        if (this.user) {
+          //已登录 获取用户频道列表
+          const { data } = await getChannels()
+          channels = data.data.channels
+        } else {
+          //未登录 判断是否有本地存储的频道列表
+          const localChannels = window.localStorage.getItem('TOUTIAO_CHANNELS')
+          if (localChannels) {
+            channels = localChannels
+          } else {
+            //没有本地数据 请求获取默认的频道列表
+            const { data } = await getChannels()
+            channels = data.data.channels
+          }
+        }
+        this.channels = channels
       } catch (err) {
         this.$toast('请求失败')
         const fakedata = [
